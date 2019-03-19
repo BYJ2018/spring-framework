@@ -31,6 +31,7 @@ import org.springframework.util.StringValueResolver;
 
 /**
  * Simple implementation of the {@link AliasRegistry} interface.
+ * 使用map作为别名的缓存，并实现AliasRegistry接口
  * Serves as base class for
  * {@link org.springframework.beans.factory.support.BeanDefinitionRegistry}
  * implementations.
@@ -47,6 +48,16 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	private final Map<String, String> aliasMap = new ConcurrentHashMap<>(16);
 
 
+	/**
+	 * 1、name和别名不能为空
+	 * 2、如果别名和name相同，则移除该别名
+	 * 3、如果不同，则根据别名获取对应的name，如果对应的name和要设置的name相同则返回
+	 * 	  判断该别名是否已经存在（allowAliasOverriding)，如果已经存在，则抛出异常
+	 * 4、检测该别名是否已经注册过了(checkForAliasCircle)， 如果已经注册，则抛出异常
+	 * 5、如果没有注册过，则添加到map中映射中去
+	 * @param name the canonical name
+	 * @param alias the alias to be registered
+	 */
 	@Override
 	public void registerAlias(String name, String alias) {
 		Assert.hasText(name, "'name' must not be empty");
@@ -85,6 +96,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 
 	/**
 	 * Return whether alias overriding is allowed.
+	 * 返回别名是否允许被覆盖
 	 * Default is {@code true}.
 	 */
 	protected boolean allowAliasOverriding() {
@@ -93,6 +105,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 
 	/**
 	 * Determine whether the given name has the given alias registered.
+	 * 判断给定的名称是否已经注册了给定的别名
 	 * @param name the name to check
 	 * @param alias the alias to look for
 	 * @since 4.2.1
@@ -110,6 +123,10 @@ public class SimpleAliasRegistry implements AliasRegistry {
 		return false;
 	}
 
+	/**
+	 * 移除指定的别名， 如果该别名不存在，则根据AliasRegistry接口的约定，抛出异常
+	 * @param alias the alias to remove
+	 */
 	@Override
 	public void removeAlias(String alias) {
 		synchronized (this.aliasMap) {
@@ -120,11 +137,21 @@ public class SimpleAliasRegistry implements AliasRegistry {
 		}
 	}
 
+	/**
+	 * 该别名是否已经存在
+	 * @param name the name to check
+	 * @return
+	 */
 	@Override
 	public boolean isAlias(String name) {
 		return this.aliasMap.containsKey(name);
 	}
 
+	/**
+	 * 获取该name的所有别名
+	 * @param name the name to check for aliases
+	 * @return
+	 */
 	@Override
 	public String[] getAliases(String name) {
 		List<String> result = new ArrayList<>();
@@ -136,6 +163,11 @@ public class SimpleAliasRegistry implements AliasRegistry {
 
 	/**
 	 * Transitively retrieve all aliases for the given name.
+	 * 递归调用 拿到与name相关联的别名  传递性
+	 * A->B
+	 * C->A
+	 * D->C
+	 * B 《==》 A C D
 	 * @param name the target name to find aliases for
 	 * @param result the resulting aliases list
 	 */
@@ -193,6 +225,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 * Check whether the given name points back to the given alias as an alias
 	 * in the other direction already, catching a circular reference upfront
 	 * and throwing a corresponding IllegalStateException.
+	 * 如果该别名已经注册过了，则抛出异常
 	 * @param name the candidate name
 	 * @param alias the candidate alias
 	 * @see #registerAlias
